@@ -2653,7 +2653,7 @@
                 console.error("WEB_APP_URL is not defined. Cannot load from Google Sheet.");
                 series = []; boatList = []; return;
             }
-             if (loadingOverlay) { loadingOverlay.textContent = "Loading from Cloud..."; loadingOverlay.classList.remove('hidden'); }
+             if (loadingOverlay) { loadingOverlay.textContent = "Loading data, please wait..."; loadingOverlay.classList.remove('hidden'); }
             console.log("Loading from Google Sheet...");
 
             try {
