@@ -492,21 +492,15 @@
         <!-- Race Results Tab -->
         <div id="results-tab" class="tab-content">
              <h2>Race Results</h2>
-             <div class="series-select">
-                 <label for="results-series-select">Series:</label><select id="results-series-select"></select>
-                 <label for="results-race-select">Race:</label><select id="results-race-select"></select>
-             </div>
+             <!-- Series and Race selectors removed from here -->
              <div id="result-race-info"></div>
              <div class="action-buttons">
                  <button id="save-results-tab-btn" class="btn-save">Save These Results to Series</button>
-                 <!-- "Edit Race Entries" and "Direct Edit" buttons removed from here -->
              </div>
-             <!-- Direct Edit Warning and Form removed -->
              <div style="overflow-x: auto;">
                  <table id="results-table" class="results-table">
                      <thead>
                          <tr><th>Pos</th><th>Sail No</th><th>Boat Type</th><th>Helm</th><th>YS</th><th>Finish</th><th>Elapsed</th><th>Corrected</th><th>Points</th></tr>
-                         <!-- Actions column removed -->
                      </thead>
                      <tbody id="results-body"></tbody>
                  </table>
@@ -560,9 +554,8 @@
         let boatList = [];
         let shortCourseSessionRaces = [];
         let currentSeries = null;
-        let currentRace = null;
+        let currentRace = null; // This will store the race number (integer)
         let editMode = false;
-        // directEditMode and resultBeingEdited removed
 
         // --- DOM Elements ---
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -611,6 +604,7 @@
 
         const selectSeries = document.getElementById('select-series');
         const selectRace = document.getElementById('select-race');
+        // resultsSeries and resultsRace dropdowns are removed from HTML, so these will be null
         const resultsSeries = document.getElementById('results-series-select');
         const resultsRace = document.getElementById('results-race-select');
         const viewSeries = document.getElementById('view-series-select');
@@ -619,8 +613,6 @@
         const resultsBody = document.getElementById('results-body');
         const resultRaceInfo = document.getElementById('result-race-info');
         const saveResultsTabBtn = document.getElementById('save-results-tab-btn');
-        // editRaceEntriesBtn and editResultsDirectlyBtn removed
-        // directEditWarning (DOM element) removed from HTML
 
         const seriesResultsBody = document.getElementById('series-results-body');
         const seriesResultsHeader = document.getElementById('series-results-header');
@@ -633,12 +625,8 @@
         const individualRaceBody = document.getElementById('individual-race-body');
         const individualRaceHeader = document.querySelector('#individual-race-results thead');
         if (individualRaceHeader) {
-            // Header for race viewer results table
             individualRaceHeader.innerHTML = '<tr><th>Pos</th><th>Sail No</th><th>Boat Type</th><th>Helm</th><th>YS</th><th>Finish</th><th>Elapsed</th><th>Corrected</th><th>Points</th></tr>';
         }
-        // editResultForm and its child elements (editResultLabel, editStatusDirect, etc.) removed from HTML
-        // So, no need to get them here. The `statusRadios` is still used by `editShortCourseEntry` for the main form's radios.
-
 
         const createSeriesBtn = document.getElementById('create-series-btn');
         const saveSeriesBtn = document.getElementById('save-series-btn');
@@ -697,7 +685,6 @@
                  else { console.warn("Could not find button for tab:", buttonId); }
              } else { console.error("setActiveTab called with null element"); }
 
-             // Direct edit mode removed, so no need to disable it here
              if (tabElement?.id !== 'race-tab') {
                 editMode = false;
                 editModeWarning?.classList.add('hidden');
@@ -708,6 +695,7 @@
              }
              if (tabElement?.id !== 'boat-list-tab') { boatListForm?.classList.add('hidden'); }
              if (tabElement?.id !== 'series-tab') { createSeriesForm?.classList.add('hidden'); }
+             if (tabElement?.id === 'results-tab') { renderRaceResults(); } // Refresh results view if navigating to it
 
          }
         if(btnBoatList) btnBoatList.addEventListener('click', () => setActiveTab(boatListTab));
@@ -1548,38 +1536,29 @@
                  }
             } else { 
                 if (entries.length === 0) { alert('Add at least one boat entry first.'); return; }
-                if (!currentSeries || !currentRace) { alert("Select a series and race number first."); return; }
+                if (!currentSeries || typeof currentRace !== 'number') { // currentRace should be a number here
+                    alert("Select a series and race number first."); return;
+                }
                 const invalidTimeStandardEntry = entries.find(e => e.status === 'finished' && !isValidTimeFormat(e.elapsedTime));
                 if (invalidTimeStandardEntry) {
                     alert(`Invalid time format for ${invalidTimeStandardEntry.sailNumber} in the current entries list. Please correct before calculating.`);
                     return;
                 }
 
-                const raceNumberFromEntryTab = currentRace;
-                const newlyCalculatedResults = calculateSingleRaceResults(entries, currentSeries, raceNumberFromEntryTab);
+                // currentSeries and currentRace (race number) are already set from Race Entry tab
+                const newlyCalculatedResults = calculateSingleRaceResults(entries, currentSeries, currentRace);
 
                 setActiveTab(resultsTab);
-                if (resultsSeries) resultsSeries.value = currentSeries.id;
-
-                updateResultsRaceDropdown(false);
-
-                if (resultsRace) {
-                    const raceOptionValueStr = String(raceNumberFromEntryTab);
-                    if (Array.from(resultsRace.options).some(opt => opt.value === raceOptionValueStr)) {
-                        resultsRace.value = raceOptionValueStr;
-                    } else if (resultsRace.options.length > 0) {
-                        resultsRace.selectedIndex = 0;
-                    }
-                }
-                results = newlyCalculatedResults;
-                currentRace = raceNumberFromEntryTab; 
-
+                results = newlyCalculatedResults; // Global results used by renderRaceResults
+                // currentSeries and currentRace are already set
                 renderRaceResults();
-                // Direct edit mode removed
 
                 if (resultRaceInfo) {
                     const infoPanel = resultRaceInfo.querySelector('.race-info-panel');
                     const infoHtml = infoPanel ? infoPanel.outerHTML : '';
+                    // Ensure this message is appended, not replacing the whole panel
+                    const existingMessage = resultRaceInfo.querySelector('p[style*="color: orange"]');
+                    if (existingMessage) existingMessage.remove(); // Remove old message if any
                     resultRaceInfo.innerHTML = infoHtml + `<p style="color: orange; font-weight: bold; margin-top: 10px;">Results have been calculated. Please review carefully. If everything is correct, click 'Save These Results to Series' to finalize and save them. If not correct, go back to Race Entry page and update any mistakes.</p>`;
                 }
             }
@@ -1671,33 +1650,13 @@
 
         function calculateOODPoints(sailNo, currentRaceCalculatedResults, targetSeries, oodRaceNumber) {
             const finishersInCurrentRace = currentRaceCalculatedResults.filter(r => r.status === 'finished' && typeof r.points === 'number');
-            let fallbackPoints = 0;
+            let oodPointsForThisRace = 0; // Default to 0 if no finishers
+
             if (finishersInCurrentRace.length > 0) {
                 const avgFinisherPoints = finishersInCurrentRace.reduce((sum, r) => sum + r.points, 0) / finishersInCurrentRace.length;
-                fallbackPoints = Math.round(avgFinisherPoints * 10) / 10;
-            } else {
-                fallbackPoints = 0;
+                oodPointsForThisRace = Math.round(avgFinisherPoints * 10) / 10;
             }
-            if (!targetSeries || oodRaceNumber === null) {
-                return fallbackPoints;
-            }
-            let racePoints = [];
-            let racesSailedCount = 0;
-            targetSeries.races.forEach(race => {
-                 if (race.raceNumber !== oodRaceNumber && race.results && race.results.length > 0) {
-                     const boatResult = race.results.find(r => r.sailNumber === sailNo);
-                     if (boatResult && typeof boatResult.points === 'number' && boatResult.status === 'finished') {
-                         racePoints.push(boatResult.points);
-                         racesSailedCount++;
-                     }
-                 }
-             });
-            if (racesSailedCount > 0) {
-                const avgPoints = racePoints.reduce((sum, pts) => sum + pts, 0) / racesSailedCount;
-                return Math.round(avgPoints * 10) / 10;
-            } else {
-                 return fallbackPoints;
-             }
+            return oodPointsForThisRace;
          }
 
 
@@ -1705,43 +1664,68 @@
         function renderRaceResults() {
             if (!resultsBody || !resultRaceInfo) return;
             resultsBody.innerHTML = '';
-            const seriesName = currentSeries ? currentSeries.name : (resultsSeries?.options[resultsSeries?.selectedIndex]?.text || 'N/A');
-            const raceNumber = currentRace || resultsRace?.value || 'N/A';
 
-            let statusMessage = ''; const statusPara = resultRaceInfo.querySelector('p[style*="color: orange"]'); if (statusPara) statusMessage = statusPara.outerHTML;
-            // directEditPanelMessage and directEditWarning removed
+            if (!currentSeries || typeof currentRace !== 'number') {
+                resultRaceInfo.innerHTML = `<div class="race-info-panel"><h3>Race Information</h3><p>No race selected or results calculated. Please go to the Race Entry tab.</p></div>`;
+                const row = resultsBody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 9;
+                cell.textContent = 'Please calculate results from the Race Entry tab first.';
+                cell.style.textAlign = 'center'; cell.style.fontStyle = 'italic'; cell.style.color = '#666';
+                if(saveResultsTabBtn) saveResultsTabBtn.classList.add('hidden'); // Hide save button
+                return;
+            }
+            if(saveResultsTabBtn) saveResultsTabBtn.classList.remove('hidden'); // Show save button
+
+            const seriesName = currentSeries.name;
+            const raceNumber = currentRace;
+
+            let statusMessage = ''; 
+            const existingStatusPara = resultRaceInfo.querySelector('p[style*="color: orange"]');
+            if (existingStatusPara && resultsTab.classList.contains('active-tab')) { // Preserve message only if already on results tab
+                 statusMessage = existingStatusPara.outerHTML;
+            }
+
 
             resultRaceInfo.innerHTML = `<div class="race-info-panel"><h3>Race Information</h3><p><strong>Series:</strong> ${seriesName}</p><p><strong>Race Number:</strong> ${raceNumber}</p><p><strong>Entries Shown:</strong> ${results?.length || 0}</p></div>` + statusMessage;
-            // Direct edit warning preserve logic removed
 
             if (!results || results.length === 0) {
-                 const existingInfo = resultRaceInfo.innerHTML;
-                 resultRaceInfo.innerHTML = existingInfo + '<p>No results calculated or loaded for this race.</p>';
-                 const row = resultsBody.insertRow(); const cell = row.insertCell(); cell.colSpan = 9; // Adjusted colspan
-                 cell.textContent = 'No results to display.'; cell.style.textAlign = 'center'; cell.style.fontStyle = 'italic'; cell.style.color = '#666'; return;
+                 const existingInfoHTML = resultRaceInfo.innerHTML; // Get potentially updated info panel
+                 resultRaceInfo.innerHTML = existingInfoHTML + '<p>No results calculated or loaded for this race.</p>';
+                 const row = resultsBody.insertRow(); const cell = row.insertCell(); cell.colSpan = 9;
+                 cell.textContent = 'No results to display for this race.'; cell.style.textAlign = 'center'; cell.style.fontStyle = 'italic'; cell.style.color = '#666'; return;
             }
             results.forEach((result, index) => {
                 const row = resultsBody.insertRow(); row.dataset.index = index;
-                // result-highlight class removed
                 row.innerHTML = `
                     <td>${result.position ?? '-'}</td><td>${result.sailNumber}</td><td>${result.boatClass}</td><td>${result.skipper}</td>
                     <td>${result.yardstick}</td><td>${result.status.toUpperCase()}</td><td>${result.elapsedTime || '-'}</td><td>${result.correctedTime || '-'}</td>
-                    <td>${result.points ?? '-'}</td>`; // Actions column removed
+                    <td>${result.points ?? '-'}</td>`;
             });
         }
 
         if(saveResultsTabBtn) saveResultsTabBtn.addEventListener('click', async () => {
-            const seriesId = resultsSeries?.value; const raceNumStr = resultsRace?.value;
-            if (!seriesId || !raceNumStr) { alert("Select Series and Race first."); return; }
-            const raceNum = parseInt(raceNumStr);
+            if (!currentSeries || typeof currentRace !== 'number') {
+                alert("Error: No current series or race identified to save results for. Please calculate results first.");
+                return;
+            }
+            const seriesId = currentSeries.id;
+            const raceNum = currentRace;
+
             if (!results) { alert("No results data available to save."); return; }
-            if (results.length === 0 && !confirm(`No results displayed for Race ${raceNum}. Save as having no results? This clears previous results.`)) { return; }
-            const targetSeries = series.find(s => s.id === parseInt(seriesId)); if (!targetSeries) { alert("Error: Series not found."); return; }
+            if (results.length === 0 && !confirm(`No results displayed for Race ${raceNum}. Save as having no results? This clears previous results if any existed.`)) { return; }
+
+            const targetSeries = series.find(s => s.id === seriesId); 
+            if (!targetSeries) { alert("Error: Series not found in application data."); return; }
+
             if (targetSeries.isShortCourse) {
                 alert("Saving for short courses is done via the 'Calculate Race Results & View' button on the Race Entry tab after creating races.");
                 return;
             }
-            const raceIndex = targetSeries.races.findIndex(race => race.raceNumber === raceNum); if (raceIndex === -1) { alert(`Error: Race ${raceNum} not found in series.`); return; }
+
+            const raceIndex = targetSeries.races.findIndex(race => race.raceNumber === raceNum); 
+            if (raceIndex === -1) { alert(`Error: Race ${raceNum} not found in series "${targetSeries.name}".`); return; }
+
             const existingSavedResults = targetSeries.races[raceIndex].results;
             if (existingSavedResults && existingSavedResults.length > 0 && results.length > 0 && !confirm(`Race ${raceNum} already has saved results. Overwrite?`)) { return; }
 
@@ -1761,28 +1745,35 @@
 
                 await saveDataToGoogleSheet();
 
-                editMode = false; editModeWarning?.classList.add('hidden');
-                // disableDirectEditMode removed
+                editMode = false; 
+                if(editModeWarning) editModeWarning.classList.add('hidden');
                 alert(`Race ${raceNum} results saved successfully for series "${targetSeries.name}".`);
-                refreshSeriesDropdowns();
-                if (resultsSeries) resultsSeries.value = seriesId;
-                updateResultsRaceDropdown(false); if (resultsRace) resultsRace.value = raceNumStr;
-                loadRaceResults(); 
-                if (seriesResultsTab && seriesResultsTab.classList.contains('active-tab') && viewSeries?.value === seriesId) calculateSeriesResults();
-                if (raceViewTab && raceViewTab.classList.contains('active-tab') && viewAllSeries?.value === seriesId) {
-                    displayRaceViewer();
+                
+                refreshSeriesDropdowns(); // Update dropdowns on other tabs
+                
+                // currentSeries and currentRace are still valid for the saved race
+                loadRaceResults(); // This will re-render the results tab with saved data
+
+                // Update other tabs if they are active and showing this series
+                if (seriesResultsTab && seriesResultsTab.classList.contains('active-tab') && viewSeries?.value == seriesId) calculateSeriesResults();
+                if (raceViewTab && raceViewTab.classList.contains('active-tab') && viewAllSeries?.value == seriesId) {
+                    displayRaceViewer(); // Re-render race viewer buttons
                     const raceButton = raceSelector?.querySelector(`.race-button[data-race-number="${raceNum}"]`);
-                    if (raceButton) { document.querySelectorAll('.race-button.active').forEach(b => b.classList.remove('active')); raceButton.classList.add('active'); displayRaceResultsView(targetSeries, raceNum); }
+                    if (raceButton) { 
+                        document.querySelectorAll('.race-button.active').forEach(b => b.classList.remove('active')); 
+                        raceButton.classList.add('active'); 
+                        displayRaceResultsView(targetSeries, raceNum); 
+                    }
                 }
-            } catch (error) { console.error("Error saving race results:", error); alert("Error saving race results."); }
+                 // Clear the "Results have been calculated..." message
+                const statusPara = resultRaceInfo?.querySelector('p[style*="color: orange"]');
+                if (statusPara) statusPara.remove();
+
+            } catch (error) { 
+                console.error("Error saving race results:", error); 
+                alert("Error saving race results: " + error.message); 
+            }
         });
-
-        // editRaceEntriesBtn event listener removed
-        // editResultsDirectlyBtn event listener removed
-        // enableDirectEditMode, disableDirectEditMode, showEditResultDialog functions removed
-        // updateRecalcResultBtn, cancelEditResult event listeners removed
-        // editStatusDirect change listener removed
-
 
         // --- Series Management ---
         if (seriesShortCourseCheck) seriesShortCourseCheck.addEventListener('change', (e) => {
@@ -1940,29 +1931,29 @@
                 await saveDataToGoogleSheet();
                 refreshSeriesList(); refreshSeriesDropdowns();
                 if (selectSeries?.value == id) selectSeries.value = "";
-                if (resultsSeries?.value == id) { resultsSeries.value = ""; loadRaceResults(); }
+                // No resultsSeries dropdown to update
                 if (viewSeries?.value == id) { viewSeries.value = ""; calculateSeriesResults(); }
                 if (viewAllSeries?.value == id) { viewAllSeries.value = ""; displayRaceViewer();}
                 if (currentSeries && currentSeries.id === id) {
                     currentSeries = null; currentRace = null; entries = []; results = []; shortCourseSessionRaces = [];
                     if(raceTab?.classList.contains('active-tab')) updateRaceEntryUI();
-                    if(resultsTab?.classList.contains('active-tab')) renderRaceResults();
+                    if(resultsTab?.classList.contains('active-tab')) renderRaceResults(); // Clears results display
                 }
                 alert(`Series "${s.name}" deleted.`);
             }
         }
 
         function refreshSeriesDropdowns() {
-             const dropdowns = [selectSeries, resultsSeries, viewSeries, viewAllSeries];
+             const dropdowns = [selectSeries, /*resultsSeries,*/ viewSeries, viewAllSeries].filter(Boolean); // Filter out null resultsSeries
              dropdowns.forEach((dropdown) => {
                  if (!dropdown) return; const selectedVal = dropdown.value; dropdown.innerHTML = '<option value="">Select Series</option>';
                  series.sort((a, b) => a.name.localeCompare(b.name));
                  series.forEach(s => { const option = document.createElement('option'); option.value = s.id; option.textContent = s.name + (s.isShortCourse ? ' (Short Course)' : ''); dropdown.appendChild(option); });
                  if (selectedVal && series.some(s => s.id == selectedVal)) dropdown.value = selectedVal; else dropdown.value = "";
              });
-             setTimeout(() => {
+             setTimeout(() => { // Allow dropdowns to update before triggering changes
                 if (raceTab?.classList.contains('active-tab')) updateRaceEntryUI();
-                if (resultsSeries?.value) updateResultsRaceDropdown(); else if (resultsRace) { resultsRace.innerHTML = ''; loadRaceResults(); }
+                // No resultsSeries dropdown logic needed here anymore
              }, 0);
          }
 
@@ -2051,12 +2042,21 @@
             updateRaceInfoAndEntries(); 
         }
 
+        // This function is no longer needed for the Results Tab as the dropdown is removed.
+        // It's kept for its utility if other parts of the app were to use a similar dropdown pattern.
+        // If not, it can be removed along with populateRaceOptions if they are not used elsewhere.
+        // For now, let's assume populateRaceOptions is still used by updateRaceDropdown.
         function updateResultsRaceDropdown(loadResultsAfterUpdate = true) {
-            if (!resultsRace || !resultsSeries) return;
-            const selectedRaceVal = resultsRace.value;
-            resultsRace.innerHTML = '';
+            // This function is largely obsolete for the results tab.
+            // If resultsRace (dropdown) is null, this function will mostly do nothing.
+            const resultsRaceEl = document.getElementById('results-race-select'); // Get it fresh if needed
+            const resultsSeriesEl = document.getElementById('results-series-select'); // Get it fresh
 
-            const seriesId = resultsSeries.value;
+            if (!resultsRaceEl || !resultsSeriesEl) return;
+            const selectedRaceVal = resultsRaceEl.value;
+            resultsRaceEl.innerHTML = '';
+
+            const seriesId = resultsSeriesEl.value;
             const selectedSeriesForDropdown = series.find(s => s.id === parseInt(seriesId));
 
             if (!selectedSeriesForDropdown) {
@@ -2064,7 +2064,7 @@
                 if (loadResultsAfterUpdate) { results = []; renderRaceResults(); }
                 return;
             }
-            populateRaceOptions(resultsRace, selectedSeriesForDropdown, true, false); 
+            populateRaceOptions(resultsRaceEl, selectedSeriesForDropdown, true, false); 
 
             let defaultRaceVal = null;
             if (selectedRaceVal && selectedSeriesForDropdown.races.some(r => r.raceNumber == selectedRaceVal)) {
@@ -2087,20 +2087,19 @@
             }
 
             if (defaultRaceVal) {
-                resultsRace.value = defaultRaceVal;
-            } else if (resultsRace.options.length > 0) { 
-                 resultsRace.selectedIndex = 0;
+                resultsRaceEl.value = defaultRaceVal;
+            } else if (resultsRaceEl.options.length > 0) { 
+                 resultsRaceEl.selectedIndex = 0;
             }
-
 
             if (loadResultsAfterUpdate) {
                 currentSeries = selectedSeriesForDropdown; 
-                currentRace = resultsRace.value ? parseInt(resultsRace.value) : null; 
-                loadRaceResults();
+                currentRace = resultsRaceEl.value ? parseInt(resultsRaceEl.value) : null; 
+                loadRaceResults(); // This will use the global currentSeries and currentRace
             } else { 
-                if(resultsRace.value) {
+                if(resultsRaceEl.value) {
                     currentSeries = selectedSeriesForDropdown; 
-                    currentRace = parseInt(resultsRace.value);
+                    currentRace = parseInt(resultsRaceEl.value);
                 } else {
                     currentSeries = null;
                     currentRace = null;
@@ -2237,20 +2236,29 @@
                  updateRaceInfoAndEntries();
              }
         });
-        if(resultsSeries) resultsSeries.addEventListener('change', () => updateResultsRaceDropdown(true));
-        if(resultsRace) resultsRace.addEventListener('change', () => { const raceNum = parseInt(resultsRace.value); if (!isNaN(raceNum)) { currentRace = raceNum; loadRaceResults(); } else { currentRace = null; results = []; renderRaceResults(); } });
+        // Event listeners for resultsSeries and resultsRace dropdowns are no longer needed as elements are removed.
+        // if(resultsSeries) resultsSeries.addEventListener('change', () => updateResultsRaceDropdown(true));
+        // if(resultsRace) resultsRace.addEventListener('change', () => { const raceNum = parseInt(resultsRace.value); if (!isNaN(raceNum)) { currentRace = raceNum; loadRaceResults(); } else { currentRace = null; results = []; renderRaceResults(); } });
+        
         if(viewSeries) viewSeries.addEventListener('change', calculateSeriesResults);
         if(viewAllSeries) viewAllSeries.addEventListener('change', displayRaceViewer);
 
 
         function loadRaceResults() {
-            currentSeries = series.find(s => s.id === parseInt(resultsSeries?.value)); currentRace = parseInt(resultsRace?.value);
-            if (!currentSeries || isNaN(currentRace)) {
-                 results = []; renderRaceResults(); return;
+            // This function is now called when the Results Tab needs to refresh its display,
+            // usually after a save operation. It relies on `currentSeries` and `currentRace` being set.
+            if (!currentSeries || typeof currentRace !== 'number') {
+                 results = []; // Clear global results
+                 renderRaceResults(); // Render the "no race selected" state
+                 return;
             }
             const race = currentSeries.races.find(r => r.raceNumber === currentRace);
-            if (!race || !race.results || race.results.length === 0) { results = []; renderRaceResults(); return; }
-            results = JSON.parse(JSON.stringify(race.results)); renderRaceResults(); 
+            if (!race || !race.results || race.results.length === 0) {
+                results = []; // No results to show for this specific race
+            } else {
+                results = JSON.parse(JSON.stringify(race.results)); // Load the saved results for this race
+            }
+            renderRaceResults(); // Re-render the results tab
         }
 
 
@@ -2455,42 +2463,27 @@
         }
 
         function calculateOODPointsSeriesContext(sailNo, oodRaceNumber, seriesData, competitorMap) {
-             const competitor = competitorMap.get(sailNo); if (!competitor) return 0;
-             let racePoints = []; let racesSailedCount = 0;
-             competitor.raceScores.forEach((score, raceNum) => {
-                 if (raceNum !== oodRaceNumber && score && score.points !== null && !isNaN(score.points) && score.status === 'FINISHED') {
-                     racePoints.push(score.points);
-                     racesSailedCount++;
-                 }
-             });
-             if (racesSailedCount > 0) {
-                 const avgPoints = racePoints.reduce((sum, pts) => sum + pts, 0) / racesSailedCount;
-                 return Math.round(avgPoints * 10) / 10;
+             const oodRaceData = seriesData.races.find(r => r.raceNumber === oodRaceNumber);
+             let oodPointsForThisRace = 0; 
+             let finisherPointsInOODRace = [];
+
+             if (oodRaceData && oodRaceData.results) {
+                  oodRaceData.results.forEach(result => {
+                      if (result.sailNumber !== sailNo && result.status === 'finished') {
+                           if (result.points != null && !isNaN(result.points)) {
+                               finisherPointsInOODRace.push(result.points);
+                           }
+                      }
+                  });
              }
-             else {
-                 const oodRaceData = seriesData.races.find(r => r.raceNumber === oodRaceNumber);
-                 let fallbackPoints = 0;
-                 let finisherPointsInOODRace = [];
-                 if (oodRaceData && oodRaceData.results) {
-                      oodRaceData.results.forEach(result => {
-                          if (result.sailNumber !== sailNo && result.status === 'finished') {
-                               const finisherCompetitor = competitorMap.get(result.sailNumber);
-                               const finisherScore = finisherCompetitor?.raceScores.get(oodRaceNumber);
-                               if (finisherScore && finisherScore.points != null && !isNaN(finisherScore.points)) {
-                                   finisherPointsInOODRace.push(finisherScore.points);
-                               }
-                          }
-                      });
-                 }
-                 if (finisherPointsInOODRace.length > 0) {
-                     const avgFinisherPoints = finisherPointsInOODRace.reduce((sum, r) => sum + r, 0) / finisherPointsInOODRace.length;
-                     fallbackPoints = Math.round(avgFinisherPoints * 10) / 10;
-                 } else {
-                     fallbackPoints = 0;
-                 }
-                 console.warn(`OOD Fallback (based on current race finishers or 0) used for ${sailNo} in Race ${oodRaceNumber}. Points: ${fallbackPoints}`);
-                 return fallbackPoints;
+
+             if (finisherPointsInOODRace.length > 0) {
+                 const avgFinisherPoints = finisherPointsInOODRace.reduce((sum, r) => sum + r, 0) / finisherPointsInOODRace.length;
+                 oodPointsForThisRace = Math.round(avgFinisherPoints * 10) / 10;
+             } else {
+                 oodPointsForThisRace = 0;
              }
+             return oodPointsForThisRace;
          }
 
 
@@ -2919,7 +2912,6 @@
          window.updateStandardEntryInTable = updateStandardEntryInTable; 
          window.editSeries = editSeries;
          window.deleteSeries = deleteSeries;
-         // window.showEditResultDialog removed
          window.editBoatInList = editBoatInList;
          window.deleteBoatFromList = deleteBoatFromList;
          window.editShortCourseEntry = editShortCourseEntry;
